@@ -277,10 +277,10 @@ static void usage(void)
 	fprintf( stderr, "\n\
 usage: mfs_dumpobj [options] <path|fsid>\n\
 \n\
-      -h			     display humnan readable dates, times, and durations\n\
+      -h			     display human readable dates, times, and durations\n\
       -f                             hexdump file objects\n\
       -l			     convert dates and times to local TZ\n\
-      -r                             recusive\n\
+      -r                             recursive\n\
 ");
 	credits();
 	exit(1);
