@@ -65,25 +65,27 @@ static void dump_callback(int fsid, struct mfs_subobj_header *obj,
 	};
 
 	if (!attr) {
-		if (last) printf("}\n");
+		if (last) printf("},\n");
 		last = fsid;
-		printf("%s %d/%d %s{\n",
+		printf("\"%s %d/%d %s\": {\n",
 		       schema_type(obj->obj_type), fsid, obj->id,
-		       obj->flags?"PRIMARY ":"");
+			   obj->flags?"PRIMARY":"");
+
 		return;
 	}
 
 	if (schema_attrib(obj->obj_type,attr->attr)) {
-		printf("\t%s[%d]=", 
+		printf("\t\"%s[%d]\": ", 
 		       schema_attrib(obj->obj_type,attr->attr), attr->attr);
 	} else {
-		printf("\t[%d]=", attr->attr);
+		printf("\"[%d]\": ", attr->attr);
 	}
 	switch (attr->eltype>>6) {
 	case TYPE_STRING:
 		for (i=0;i<attr->len-4;) {
 			char *s = (char *)&p[i];
-			printf("%s ", s);
+			// TODO: Need to write i to an array, printf(\"i\")
+			printf("%s", s);
 			i += strlen(s)+1;
 		}
 		break;
@@ -98,13 +100,13 @@ static void dump_callback(int fsid, struct mfs_subobj_header *obj,
 
 		for (i=0;i<(attr->len-4)/4;i++) {
 			intvalue = ntohl(*(int *)&p[i*4]);
-			printf("%d ", intvalue);
+			printf("%d,", intvalue);
 		}
 		if (option_human) {
 			if (strstr(schema_attrib(obj->obj_type,attr->attr), "Date")) {
 				date_time = (time_t)(intvalue*86400 + tzoff);
 				timeptr = timefn(&date_time);
-				printf(" (%.3s %.3s%3d %d)",
+				printf("\" (%.3s %.3s%3d %d)\"",
 				       wday_name[timeptr->tm_wday],
 				       mon_name[timeptr->tm_mon],
 				       timeptr->tm_mday,
@@ -113,7 +115,7 @@ static void dump_callback(int fsid, struct mfs_subobj_header *obj,
 			if (strstr(schema_attrib(obj->obj_type,attr->attr), "Time")) {
 				date_time = (time_t)(intvalue + tzoff);
 				timeptr = timefn(&date_time);
-				printf(" (%.2d:%.2d:%.2d)",
+				printf("\" (%.2d:%.2d:%.2d)\"",
 				       timeptr->tm_hour,
 				       timeptr->tm_min,
 				       timeptr->tm_sec);
@@ -121,7 +123,7 @@ static void dump_callback(int fsid, struct mfs_subobj_header *obj,
 			if (strstr(schema_attrib(obj->obj_type,attr->attr), "Duration")) {
 				date_time = (time_t)(intvalue);
 				timeptr = gmtime(&date_time);
-				printf(" (%.2d:%.2d:%.2d)",
+				printf("\" (%.2d:%.2d:%.2d)\"",
 				       timeptr->tm_hour,
 				       timeptr->tm_min,
 				       timeptr->tm_sec);
@@ -134,7 +136,7 @@ static void dump_callback(int fsid, struct mfs_subobj_header *obj,
 		for (i=0;i<(attr->len-4)/sizeof(*objattr);i++) {
 			int  fsid = ntohl(objattr->fsid);
 			queue_add(fsid);
-			printf("%d/%d ",
+			printf("\"%d/%d\",",
 			       fsid,
 			       (int) ntohl(objattr->subobj));
 			objattr++;
