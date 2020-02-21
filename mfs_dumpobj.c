@@ -9,6 +9,7 @@
 #include <assert.h>
 
 static int option_human = 0;
+static int option_json = 1;
 struct tm * (*timefn)(const time_t *CLOCK) = gmtime;
 int option_local = 0;
 static int tzoff = 0;
@@ -65,27 +66,59 @@ static void dump_callback(int fsid, struct mfs_subobj_header *obj,
 	};
 
 	if (!attr) {
-		if (last) printf("},\n");
-		last = fsid;
-		printf("\"%s %d/%d %s\": {\n",
-		       schema_type(obj->obj_type), fsid, obj->id,
-			   obj->flags?"PRIMARY":"");
+		if (last) {
+			if (option_json) {
+				printf("},\n");
+		} else {
+			printf("}\n");
+		}
+		}
 
+		last = fsid;
+		if (option_json) {
+				printf("\"%s %d/%d %s\": {\n",
+				schema_type(obj->obj_type), fsid, obj->id,
+			    obj->flags?"PRIMARY":"");
+		} else {  // TODO: Remove duplication here
+			printf("%s %d/%d %s{\n",
+		    schema_type(obj->obj_type), fsid, obj->id,
+		    obj->flags?"PRIMARY ":"");
+		}
 		return;
 	}
 
 	if (schema_attrib(obj->obj_type,attr->attr)) {
-		printf("\t\"%s[%d]\": ", 
-		       schema_attrib(obj->obj_type,attr->attr), attr->attr);
+		if (option_json) {
+			printf("\t\"%s[%d]\": ", 
+			schema_attrib(obj->obj_type,attr->attr), attr->attr);
+		} else {
+			printf("\t%s[%d]=", 
+			schema_attrib(obj->obj_type,attr->attr), attr->attr);
+		}
 	} else {
-		printf("\"[%d]\": ", attr->attr);
+		if (option_json) {
+			printf("\"[%d]\": ", attr->attr);
+		} else {
+			printf("\t[%d]=", attr->attr);
+		}
 	}
 	switch (attr->eltype>>6) {
 	case TYPE_STRING:
 		for (i=0;i<attr->len-4;) {
 			char *s = (char *)&p[i];
-			// TODO: Need to write i to an array, printf(\"i\")
-			printf("%s", s);
+			if (option_json && i == 0){
+				// Prepend the string with a "
+				printf("\"");
+				printf("%s", s);
+			}
+			else if (option_json && i<attr->len-4) {
+				printf("%s", s);
+				// Append " to the string
+				printf("\"");
+			} else {
+				printf("%s ", s);
+			}
+
 			i += strlen(s)+1;
 		}
 		break;
@@ -100,7 +133,11 @@ static void dump_callback(int fsid, struct mfs_subobj_header *obj,
 
 		for (i=0;i<(attr->len-4)/4;i++) {
 			intvalue = ntohl(*(int *)&p[i*4]);
-			printf("%d,", intvalue);
+			if (option_json) {
+				printf("%d,", intvalue);
+			} else {
+				printf("%d ", intvalue);
+			}
 		}
 		if (option_human) {
 			if (strstr(schema_attrib(obj->obj_type,attr->attr), "Date")) {
@@ -136,9 +173,15 @@ static void dump_callback(int fsid, struct mfs_subobj_header *obj,
 		for (i=0;i<(attr->len-4)/sizeof(*objattr);i++) {
 			int  fsid = ntohl(objattr->fsid);
 			queue_add(fsid);
-			printf("\"%d/%d\",",
+			if (option_json) {
+				printf("\"%d/%d\",",
 			       fsid,
 			       (int) ntohl(objattr->subobj));
+			} else {
+				printf("%d/%d ",
+				fsid,
+				(int) ntohl(objattr->subobj));
+			}
 			objattr++;
 		}
 		break;
@@ -283,6 +326,7 @@ usage: mfs_dumpobj [options] <path|fsid>\n\
       -f                             hexdump file objects\n\
       -l			     convert dates and times to local TZ\n\
       -r                             recursive\n\
+	  -j				 display output in JSON format\n\
 ");
 	credits();
 	exit(1);
@@ -317,6 +361,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'r':
 			recurse = 1;
+			break;
+		case 'j':
+			option_json = 1;
 			break;
 
 		default:
